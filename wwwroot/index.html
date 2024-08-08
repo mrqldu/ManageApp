@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Interface</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        .action-buttons {
+            margin-top: 20px;
+        }
+        .edit-input {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Управление пользователями</h1>
+    <div>
+        <h2>Форма пользователя</h2>
+        <input type="hidden" id="userId" />
+        <p>
+            Имя:<br/>
+            <input id="userFirstName" />
+        </p>
+        <p>
+            Фамилия:<br />
+            <input id="userLastName" />
+        </p>
+        <p>
+            Отчество:<br />
+            <input id="userMiddleName" />
+        </p>
+        <p>
+            Email:<br />
+            <input id="userEmail" type="email" />
+        </p>
+        <p>
+            Роли (через запятую):<br />
+            <input id="userRoles" />
+        </p>
+        <p>
+            <button id="saveBtn">Сохранить</button>
+            <button id="resetBtn">Сбросить</button>
+        </p>
+    </div>
+    <div class="action-buttons">
+        <button onclick="resetForm()">Добавить нового пользователя</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя</th>
+                <th>Фамилия</th>
+                <th>Отчество</th>
+                <th>Email</th>
+                <th>Роли</th>
+                <th>Дата создания</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="userList"></tbody>
+    </table>
+
+    <script>
+        const userList = document.getElementById('userList');
+        const baseUrl = '/api/users'; // Базовый URL для всех пользователей
+
+        // Получение всех пользователей
+        async function getUsers() {
+            try {
+                const response = await fetch(baseUrl);
+                if (!response.ok) throw new Error('Не удалось получить пользователей');
+                const users = await response.json();
+                userList.innerHTML = users.map(user => createRow(user)).join('');
+            } catch (error) {
+                console.error('Ошибка при загрузке пользователей:', error);
+            }
+        }
+
+        // Получение одного пользователя по ID
+        async function getUser(id) {
+            try {
+                const response = await fetch(`${baseUrl}/${id}`);
+                if (!response.ok) throw new Error('Не удалось получить пользователя');
+                const user = await response.json();
+                document.getElementById("userId").value = user.id; // Используйте _id для MongoDB
+                document.getElementById("userFirstName").value = user.firstName || '';
+                document.getElementById("userLastName").value = user.lastName || '';
+                document.getElementById("userMiddleName").value = user.middleName || '';
+                document.getElementById("userEmail").value = user.email || '';
+                document.getElementById("userRoles").value = user.roles ? user.roles.join(', ') : '';
+            } catch (error) {
+                console.error('Ошибка при получении пользователя:', error);
+            }
+        }
+
+        // Добавление нового пользователя
+        async function createUser(user) {
+            try {
+                const response = await fetch(baseUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(user)
+                });
+                if (!response.ok) throw new Error('Не удалось создать пользователя');
+                const newUser = await response.json();
+                userList.insertAdjacentHTML('afterbegin', createRow(newUser));
+            } catch (error) {
+                console.error('Ошибка при создании пользователя:', error);
+            }
+        }
+
+        // Изменение пользователя
+        async function editUser(user) {
+            try {
+                if (!user.id) {
+                    console.error('Ошибка: ID пользователя не указан для обновления');
+                    return; // Прекращаем выполнение, если ID не задан
+                }
+
+                const response = await fetch(`${baseUrl}/${user.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(user)
+                });
+                if (!response.ok) throw new Error('Не удалось обновить пользователя');
+                const updatedUser = await response.json();
+                const rowElement = document.querySelector(`tr[data-id='${user.id}']`);
+                if (rowElement) rowElement.outerHTML = createRow(updatedUser);
+            } catch (error) {
+                console.error('Ошибка при обновлении пользователя:', error);
+            }
+        }
+
+        // Удаление пользователя
+        async function deleteUser(rowElement) {
+            const userId = rowElement.dataset.id;
+            if (!userId) {
+                console.error('Ошибка: ID пользователя не указан или недопустим');
+                return; // Прекращаем выполнение, если ID не задан
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('Не удалось удалить пользователя');
+                rowElement.remove();
+            } catch (error) {
+                console.error('Ошибка при удалении пользователя:', error);
+            }
+        }
+
+        // Сброс данных формы
+        function resetForm() {
+            document.getElementById("userId").value = '';
+            document.getElementById("userFirstName").value = '';
+            document.getElementById("userLastName").value = '';
+            document.getElementById("userMiddleName").value = '';
+            document.getElementById("userEmail").value = '';
+            document.getElementById("userRoles").value = '';
+        }
+
+        // Создание строки таблицы
+        function createRow(user) {
+            console.log(user);
+            return `
+                <tr data-id="${user.id}">
+                    <td>${user.id || ''}</td>
+                    <td>${user.firstName || ''}</td>
+                    <td>${user.lastName || ''}</td>
+                    <td>${user.middleName || ''}</td>
+                    <td>${user.email || ''}</td>
+                    <td>${user.roles ? user.roles.join(', ') : ''}</td>
+                    <td>${user.createdDate ? new Date(user.createdDate).toLocaleString() : 'Дата не указана'}</td>
+                    <td>
+                        <button onclick="getUser('${user.id}')">Изменить</button>
+                        <button onclick="deleteUser(this.closest('tr'))">Удалить</button>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        // Обработка событий
+        document.getElementById("resetBtn").addEventListener("click", resetForm);
+
+        document.getElementById("saveBtn").addEventListener("click", async () => {
+            const id = document.getElementById("userId").value;
+            const user = {
+                firstName: document.getElementById("userFirstName").value,
+                lastName: document.getElementById("userLastName").value,
+                middleName: document.getElementById("userMiddleName").value,
+                email: document.getElementById("userEmail").value,
+                roles: document.getElementById("userRoles").value.split(',').map(role => role.trim()),
+                password: 'temporary' // Использовать реальный пароль в продакшене
+            };
+
+            if (id) {
+                // Если id есть, редактируем существующего пользователя
+                user.id = id;
+                await editUser(user);
+            } else {
+                // Если id нет, создаём нового пользователя
+                await createUser(user);
+            }
+
+            resetForm();
+        });
+
+        // Загрузка пользователей при инициализации
+        getUsers();
+    </script>
+</body>
+</html>
